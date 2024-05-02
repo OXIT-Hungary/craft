@@ -42,7 +42,7 @@ def copyStateDict(state_dict):
 def str2bool(v):
     return v.lower() in ("yes", "y", "true", "t", "1")
 
-parser = argparse.ArgumentParser(description='CRAFT Text Detection')
+""" parser = argparse.ArgumentParser(description='CRAFT Text Detection')
 parser.add_argument('--trained_model', default='submodules/craft/weights/craft_mlt_25k.pth', type=str, help='pretrained model')
 parser.add_argument('--text_threshold', default=0.7, type=float, help='text confidence threshold')
 parser.add_argument('--low_text', default=0.2, type=float, help='text low-bound score')
@@ -56,21 +56,13 @@ parser.add_argument('--test_folder', default='datasets/craft_input', type=str, h
 parser.add_argument('--refine', default=False, action='store_true', help='enable link refiner')
 parser.add_argument('--refiner_model', default='path/craft_refiner_CTW1500.pth', type=str, help='pretrained refiner model')
 
-args = parser.parse_args()
+args = parser.parse_args() """
 
-
-""" For test images in a folder """
-image_list, _, _ = file_utils.get_files(args.test_folder)
-
-result_folder = './results/craft/'
-if not os.path.isdir(result_folder):
-    os.mkdir(result_folder)
-
-def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
+def test_net(cfg, net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
 
     # resize
-    img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, args.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=args.mag_ratio)
+    img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, cfg.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=cfg.mag_ratio)
     ratio_h = ratio_w = 1 / target_ratio
 
     # preprocessing
@@ -113,22 +105,30 @@ def test_net(net, image, text_threshold, link_threshold, low_text, cuda, poly, r
     render_img = np.hstack((render_img, score_link))
     ret_score_text = imgproc.cvt2HeatmapImg(render_img)
 
-    if args.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
+    if cfg.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
     return boxes, polys, ret_score_text
 
 
-def main():
+def main(cfg):
+
+    """ For test images in a folder """
+    image_list, _, _ = file_utils.get_files(cfg.test_folder)
+
+    result_folder = cfg.result_folder
+    if not os.path.isdir(result_folder):
+        os.mkdir(result_folder)
+
     # load net
     net = CRAFT()     # initialize
 
-    print('Loading weights from checkpoint (' + args.trained_model + ')')
-    if args.cuda:
-        net.load_state_dict(copyStateDict(torch.load(args.trained_model)))
+    print('Loading weights from checkpoint (' + cfg.trained_model + ')')
+    if cfg.cuda:
+        net.load_state_dict(copyStateDict(torch.load(cfg.trained_model)))
     else:
-        net.load_state_dict(copyStateDict(torch.load(args.trained_model, map_location='cpu')))
+        net.load_state_dict(copyStateDict(torch.load(cfg.trained_model, map_location='cpu')))
 
-    if args.cuda:
+    if cfg.cuda:
         net = net.cuda()
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = False
@@ -137,19 +137,19 @@ def main():
 
     # LinkRefiner
     refine_net = None
-    if args.refine:
+    if cfg.refine:
         from refinenet import RefineNet
         refine_net = RefineNet()
-        print('Loading weights of refiner from checkpoint (' + args.refiner_model + ')')
-        if args.cuda:
-            refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model)))
+        print('Loading weights of refiner from checkpoint (' + cfg.refiner_model + ')')
+        if cfg.cuda:
+            refine_net.load_state_dict(copyStateDict(torch.load(cfg.refiner_model)))
             refine_net = refine_net.cuda()
             refine_net = torch.nn.DataParallel(refine_net)
         else:
-            refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model, map_location='cpu')))
+            refine_net.load_state_dict(copyStateDict(torch.load(cfg.refiner_model, map_location='cpu')))
 
         refine_net.eval()
-        args.poly = True
+        cfg.poly = True
 
     t = time.time()
 
@@ -158,7 +158,7 @@ def main():
         print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
         image = imgproc.loadImage(image_path)
 
-        bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
+        bboxes, polys, score_text = test_net(cfg, net, image, cfg.text_threshold, cfg.link_threshold, cfg.low_text, cfg.cuda, cfg.poly, refine_net)
 
         # save score text
         filename, file_ext = os.path.splitext(os.path.basename(image_path))
