@@ -25,6 +25,8 @@ import file_utils
 import json
 import zipfile
 
+import shutil
+
 from craft import CRAFT
 
 from collections import OrderedDict
@@ -116,8 +118,11 @@ def main(cfg):
     image_list, _, _ = file_utils.get_files(cfg.test_folder)
 
     result_folder = cfg.result_folder
-    if not os.path.isdir(result_folder):
-        os.mkdir(result_folder)
+
+    if os.path.isdir(result_folder):
+        shutil.rmtree(result_folder)
+    else:
+        os.makedirs(result_folder, exist_ok=True)
 
     # load net
     net = CRAFT()     # initialize
