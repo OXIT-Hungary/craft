@@ -121,6 +121,7 @@ def main(cfg):
 
     if os.path.isdir(result_folder):
         shutil.rmtree(result_folder)
+        os.makedirs(result_folder, exist_ok=True)
     else:
         os.makedirs(result_folder, exist_ok=True)
 
