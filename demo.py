@@ -223,12 +223,15 @@ def main(cfg):
             original_file = result_folder + "/res_" + filename + '.jpg'
             _img = np.array(image[:,:,::-1])
             if _position is not None:
+                
                 circle_pos = get_position_on_original_img(cfg, _position, _image, _img)
-                cv2.circle(_img, circle_pos, 1, (0,0,255), 2)
-                #cv2.circle(_img, circle_pos, cfg.bbox_size, (255,0,0), 2)
-
                 bbox_size = cfg.bbox_size/2
-                cv2.rectangle(_img,(int(circle_pos[0]-bbox_size),int(circle_pos[1]+bbox_size)),(int(circle_pos[0]+bbox_size),int(circle_pos[1]-bbox_size)),(255,0,0), 2)
+
+                if cfg.show_polygon_on_results:
+                    cv2.circle(_img, circle_pos, 1, (0,0,255), 2)
+                    #cv2.circle(_img, circle_pos, cfg.bbox_size, (255,0,0), 2)
+
+                    cv2.rectangle(_img,(int(circle_pos[0]-bbox_size),int(circle_pos[1]+bbox_size)),(int(circle_pos[0]+bbox_size),int(circle_pos[1]-bbox_size)),(255,0,0), 2)
 
                 res_txt = result_folder + "/res_" + filename + '.txt'
                 with open(res_txt, 'w') as f:
