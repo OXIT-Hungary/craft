@@ -249,7 +249,7 @@ def main(cfg):
             mask_file = result_folder + "/res_" + filename + '_mask.jpg'
             #cv2.imwrite(mask_file, score_text)
 
-            file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+            file_utils.saveResult(cfg, image_path, image[:,:,::-1], polys, dirname=result_folder)
 
     print("elapsed time : {}s".format(time.time() - t))
 
