@@ -60,6 +60,34 @@ parser.add_argument('--refiner_model', default='path/craft_refiner_CTW1500.pth',
 
 args = parser.parse_args() """
 
+def get_character_position(img, brightness_thresh, output_img_=None):
+
+    bb_size_threshold = 10  ### Minimum size of the bounding box ###
+    color_threshold = 0.3   ### Brightness value, that determines the lower threshold of the color palette; lower value - red , upper value - green ###
+
+    ret, thresh = cv2.threshold(img, brightness_thresh, 1, 0)
+    thresh = cv2.convertScaleAbs(thresh)
+
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    if len(contours) != 0:
+
+        #find the biggest area of the contour
+        c = max(contours, key = cv2.contourArea)
+
+        if output_img_ is not None:
+
+            # the contours are drawn here
+            #cv.drawContours(output_img_, [c], -1, 255, 3)
+
+            minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(img)
+            detection_color = (0, 255*(maxVal-color_threshold), 255-255*(maxVal-color_threshold))
+            cv2.circle(output_img_, maxLoc, 1, detection_color, 10)
+            cv2.circle(output_img_, maxLoc, 20, detection_color, 2)
+
+        x,y,w,h = cv2.boundingRect(c)
+        return [x+w/2, y+h/2]#, thresh
+
 def test_net(cfg, net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
 
@@ -91,26 +119,47 @@ def test_net(cfg, net, image, text_threshold, link_threshold, low_text, cuda, po
     t0 = time.time() - t0
     t1 = time.time()
 
-    # Post-processing
-    boxes, polys = craft_utils.getDetBoxes(score_text, score_link, text_threshold, link_threshold, low_text, poly)
+    if cfg.max_intensity == True:
+        result_img = score_text.copy()
+        result_pos = get_character_position(score_text, 0.1, result_img)
+        result_img = cv2.normalize(result_img, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
+        #cv2.imwrite('test_heatmap.jpg', result_test)
+        return result_pos, result_img
+    else:
+        # Post-processing
+        boxes, polys = craft_utils.getDetBoxes(score_text, score_link, text_threshold, link_threshold, low_text, poly)
 
-    # coordinate adjustment
-    boxes = craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
-    polys = craft_utils.adjustResultCoordinates(polys, ratio_w, ratio_h)
-    for k in range(len(polys)):
-        if polys[k] is None: polys[k] = boxes[k]
+        # coordinate adjustment
+        boxes = craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
+        polys = craft_utils.adjustResultCoordinates(polys, ratio_w, ratio_h)
+        for k in range(len(polys)):
+            if polys[k] is None: polys[k] = boxes[k]
 
-    t1 = time.time() - t1
+        t1 = time.time() - t1
 
-    # render results (optional)
-    render_img = score_text.copy()
-    render_img = np.hstack((render_img, score_link))
-    ret_score_text = imgproc.cvt2HeatmapImg(render_img)
+        # render results (optional)
+        render_img = score_text.copy()
+        render_img = np.hstack((render_img, score_link))
+        ret_score_text = imgproc.cvt2HeatmapImg(render_img)
 
-    if cfg.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
+        if cfg.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
-    return boxes, polys, ret_score_text
+        return boxes, polys, ret_score_text
 
+def get_position_on_original_img(cfg, pos, heatmap, img):
+
+    heatmap_size = heatmap.shape
+    img_size = img.shape
+
+    target_w, target_h = int(img_size[0] * cfg.mag_ratio), int(img_size[1] * cfg.mag_ratio)
+    width_corr = 0
+    height_corr = 0
+    if target_w % 32 != 0:
+        width_corr = 32 - target_w % 32
+    if target_h % 32 != 0:
+        height_corr = 32 - target_h % 32
+    
+    return (int((pos[0]*2 - width_corr) / 10), int((pos[1]*2 - height_corr) / 10))
 
 def main(cfg):
 
@@ -164,14 +213,43 @@ def main(cfg):
         print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
         image = imgproc.loadImage(image_path)
 
-        bboxes, polys, score_text = test_net(cfg, net, image, cfg.text_threshold, cfg.link_threshold, cfg.low_text, cfg.cuda, cfg.poly, refine_net)
+        if cfg.max_intensity == True:
+            _position, _image = test_net(cfg, net, image, cfg.text_threshold, cfg.link_threshold, cfg.low_text, cfg.cuda, cfg.poly, refine_net)
 
-        # save score text
-        filename, file_ext = os.path.splitext(os.path.basename(image_path))
-        mask_file = result_folder + "/res_" + filename + '_mask.jpg'
-        cv2.imwrite(mask_file, score_text)
+            filename, file_ext = os.path.splitext(os.path.basename(image_path))
+            mask_file = result_folder + "/res_" + filename + '_mask.jpg'
+            #cv2.imwrite(mask_file, _image)
 
-        file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+            original_file = result_folder + "/res_" + filename + '.jpg'
+            _img = np.array(image[:,:,::-1])
+            if _position is not None:
+                circle_pos = get_position_on_original_img(cfg, _position, _image, _img)
+                cv2.circle(_img, circle_pos, 1, (0,0,255), 2)
+                #cv2.circle(_img, circle_pos, cfg.bbox_size, (255,0,0), 2)
+
+                bbox_size = cfg.bbox_size/2
+                cv2.rectangle(_img,(int(circle_pos[0]-bbox_size),int(circle_pos[1]+bbox_size)),(int(circle_pos[0]+bbox_size),int(circle_pos[1]-bbox_size)),(255,0,0), 2)
+
+                res_txt = result_folder + "/res_" + filename + '.txt'
+                with open(res_txt, 'w') as f:
+
+                    p1 = (int(circle_pos[0]-bbox_size),int(circle_pos[1]-bbox_size))
+                    p2 = (int(circle_pos[0]+bbox_size),int(circle_pos[1]-bbox_size))
+                    p3 = (int(circle_pos[0]+bbox_size),int(circle_pos[1]+bbox_size))
+                    p4 = (int(circle_pos[0]-bbox_size),int(circle_pos[1]+bbox_size))
+                    f.write(str(p1[0]) + ',' + str(p1[1]) + ',' + str(p2[0]) + ',' + str(p2[1]) + ',' + str(p3[0]) + ',' + str(p3[1]) + ',' + str(p4[0]) + ',' + str(p4[1]))
+
+                cv2.imwrite(original_file, _img)
+
+        else:
+            bboxes, polys, score_text = test_net(cfg, net, image, cfg.text_threshold, cfg.link_threshold, cfg.low_text, cfg.cuda, cfg.poly, refine_net)
+
+            # save score text
+            filename, file_ext = os.path.splitext(os.path.basename(image_path))
+            mask_file = result_folder + "/res_" + filename + '_mask.jpg'
+            cv2.imwrite(mask_file, score_text)
+
+            file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
 
     print("elapsed time : {}s".format(time.time() - t))
 
