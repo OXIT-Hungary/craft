@@ -88,11 +88,11 @@ def get_character_position(img, brightness_thresh, output_img_=None):
         x,y,w,h = cv2.boundingRect(c)
         return [x+w/2, y+h/2]#, thresh
 
-def test_net(cfg, net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
+def test_net(parameters, net, image, text_threshold, link_threshold, low_text, cuda, poly, refine_net=None):
     t0 = time.time()
 
     # resize
-    img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, cfg.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=cfg.mag_ratio)
+    img_resized, target_ratio, size_heatmap = imgproc.resize_aspect_ratio(image, parameters.canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio=parameters.mag_ratio)
     ratio_h = ratio_w = 1 / target_ratio
 
     # preprocessing
@@ -119,7 +119,7 @@ def test_net(cfg, net, image, text_threshold, link_threshold, low_text, cuda, po
     t0 = time.time() - t0
     t1 = time.time()
 
-    if cfg.max_intensity == True:
+    if parameters.max_intensity == True:
         result_img = score_text.copy()
         result_pos = get_character_position(score_text, 0.1, result_img)
         result_img = cv2.normalize(result_img, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
@@ -142,16 +142,16 @@ def test_net(cfg, net, image, text_threshold, link_threshold, low_text, cuda, po
         render_img = np.hstack((render_img, score_link))
         ret_score_text = imgproc.cvt2HeatmapImg(render_img)
 
-        if cfg.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
+        if parameters.show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
 
         return boxes, polys, ret_score_text
 
-def get_position_on_original_img(cfg, pos, heatmap, img):
+def get_position_on_original_img(parameters, pos, heatmap, img):
 
     heatmap_size = heatmap.shape
     img_size = img.shape
 
-    target_w, target_h = int(img_size[0] * cfg.mag_ratio), int(img_size[1] * cfg.mag_ratio)
+    target_w, target_h = int(img_size[0] * parameters.mag_ratio), int(img_size[1] * parameters.mag_ratio)
     width_corr = 0
     height_corr = 0
     if target_w % 32 != 0:
@@ -163,10 +163,14 @@ def get_position_on_original_img(cfg, pos, heatmap, img):
 
 def main(cfg):
 
-    """ For test images in a folder """
-    image_list, _, _ = file_utils.get_files(cfg.test_folder)
+    parameters = cfg.submodules.craft.parameters
+    dataloader = cfg.submodules.craft.dataloader
+    datawriter = cfg.submodules.craft.datawriter
 
-    result_folder = cfg.result_folder
+    """ For test images in a folder """
+    image_list, _, _ = file_utils.get_files(dataloader.data_folder)
+
+    result_folder = datawriter.result_folder
 
     if os.path.isdir(result_folder):
         shutil.rmtree(result_folder)
@@ -177,13 +181,13 @@ def main(cfg):
     # load net
     net = CRAFT()     # initialize
 
-    print('Loading weights from checkpoint (' + cfg.trained_model + ')')
-    if cfg.cuda:
-        net.load_state_dict(copyStateDict(torch.load(cfg.trained_model)))
+    print('Loading weights from checkpoint (' + dataloader.trained_model + ')')
+    if parameters.cuda:
+        net.load_state_dict(copyStateDict(torch.load(dataloader.trained_model)))
     else:
-        net.load_state_dict(copyStateDict(torch.load(cfg.trained_model, map_location='cpu')))
+        net.load_state_dict(copyStateDict(torch.load(dataloader.trained_model, map_location='cpu')))
 
-    if cfg.cuda:
+    if parameters.cuda:
         net = net.cuda()
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = False
@@ -192,19 +196,19 @@ def main(cfg):
 
     # LinkRefiner
     refine_net = None
-    if cfg.refine:
+    if parameters.refine:
         from refinenet import RefineNet
         refine_net = RefineNet()
-        print('Loading weights of refiner from checkpoint (' + cfg.refiner_model + ')')
-        if cfg.cuda:
-            refine_net.load_state_dict(copyStateDict(torch.load(cfg.refiner_model)))
+        print('Loading weights of refiner from checkpoint (' + dataloader.refiner_model + ')')
+        if parameters.cuda:
+            refine_net.load_state_dict(copyStateDict(torch.load(dataloader.refiner_model)))
             refine_net = refine_net.cuda()
             refine_net = torch.nn.DataParallel(refine_net)
         else:
-            refine_net.load_state_dict(copyStateDict(torch.load(cfg.refiner_model, map_location='cpu')))
+            refine_net.load_state_dict(copyStateDict(torch.load(dataloader.refiner_model, map_location='cpu')))
 
         refine_net.eval()
-        cfg.poly = True
+        parameters.poly = True
 
     t = time.time()
 
@@ -213,8 +217,8 @@ def main(cfg):
         print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
         image = imgproc.loadImage(image_path)
 
-        if cfg.max_intensity == True:
-            _position, _image = test_net(cfg, net, image, cfg.text_threshold, cfg.link_threshold, cfg.low_text, cfg.cuda, cfg.poly, refine_net)
+        if parameters.max_intensity == True:
+            _position, _image = test_net(parameters, net, image, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, refine_net)
 
             filename, file_ext = os.path.splitext(os.path.basename(image_path))
             mask_file = result_folder + "/res_" + filename + '_mask.jpg'
@@ -224,12 +228,12 @@ def main(cfg):
             _img = np.array(image[:,:,::-1])
             if _position is not None:
                 
-                circle_pos = get_position_on_original_img(cfg, _position, _image, _img)
-                bbox_size = cfg.bbox_size/2
+                circle_pos = get_position_on_original_img(parameters, _position, _image, _img)
+                bbox_size = parameters.bbox_size/2
 
-                if cfg.show_polygon_on_results:
+                if parameters.show_polygon_on_results:
                     cv2.circle(_img, circle_pos, 1, (0,0,255), 2)
-                    #cv2.circle(_img, circle_pos, cfg.bbox_size, (255,0,0), 2)
+                    #cv2.circle(_img, circle_pos, parameters.bbox_size, (255,0,0), 2)
 
                     cv2.rectangle(_img,(int(circle_pos[0]-bbox_size),int(circle_pos[1]+bbox_size)),(int(circle_pos[0]+bbox_size),int(circle_pos[1]-bbox_size)),(255,0,0), 2)
 
@@ -245,14 +249,14 @@ def main(cfg):
                 cv2.imwrite(original_file, _img)
 
         else:
-            bboxes, polys, score_text = test_net(cfg, net, image, cfg.text_threshold, cfg.link_threshold, cfg.low_text, cfg.cuda, cfg.poly, refine_net)
+            bboxes, polys, score_text = test_net(parameters, net, image, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, refine_net)
 
             # save score text
             filename, file_ext = os.path.splitext(os.path.basename(image_path))
             mask_file = result_folder + "/res_" + filename + '_mask.jpg'
             #cv2.imwrite(mask_file, score_text)
 
-            file_utils.saveResult(cfg, image_path, image[:,:,::-1], polys, dirname=result_folder)
+            file_utils.saveResult(parameters, image_path, image[:,:,::-1], polys, dirname=result_folder)
 
     print("elapsed time : {}s".format(time.time() - t))
 

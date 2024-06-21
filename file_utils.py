@@ -30,7 +30,7 @@ def list_files(in_path):
     # gt_files.sort()
     return img_files, mask_files, gt_files
 
-def saveResult(cfg, img_file, img, boxes, dirname='./result/', verticals=None, texts=None):
+def saveResult(parameters, img_file, img, boxes, dirname='./result/', verticals=None, texts=None):
         """ save text detection result one by one
         Args:
             img_file (str): image file name
@@ -58,7 +58,7 @@ def saveResult(cfg, img_file, img, boxes, dirname='./result/', verticals=None, t
                 strResult = ','.join([str(p) for p in poly]) + '\r\n'
                 f.write(strResult)
 
-                if cfg.show_polygon_on_results:
+                if parameters.show_polygon_on_results:
                     poly = poly.reshape(-1, 2)
                     cv2.polylines(img, [poly.reshape((-1, 1, 2))], True, color=(0, 0, 255), thickness=2)
                     ptColor = (0, 255, 255)
