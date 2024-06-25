@@ -161,6 +161,36 @@ def get_position_on_original_img(parameters, pos, heatmap, img):
     
     return (int((pos[0]*2 - width_corr) / 10), int((pos[1]*2 - height_corr) / 10))
 
+def main_init(cfg):
+
+    parameters = cfg.submodules.craft.parameters
+    dataloader = cfg.submodules.craft.dataloader
+
+    net = CRAFT()     # initialize
+
+    print('Loading weights from checkpoint (' + dataloader.trained_model + ')')
+    if parameters.cuda:
+        net.load_state_dict(copyStateDict(torch.load(dataloader.trained_model)))
+    else:
+        net.load_state_dict(copyStateDict(torch.load(dataloader.trained_model, map_location='cpu')))
+
+    if parameters.cuda:
+        net = net.cuda()
+        net = torch.nn.DataParallel(net)
+        cudnn.benchmark = False
+
+    net.eval()
+
+    return net
+
+def main_eval(cfg, net, img):
+
+    parameters = cfg.submodules.craft.parameters
+
+    bboxes, polys, score_text = test_net(parameters, net, img, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, None)
+
+    return polys
+
 def main(cfg):
 
     parameters = cfg.submodules.craft.parameters
