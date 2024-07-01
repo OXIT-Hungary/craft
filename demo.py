@@ -183,13 +183,26 @@ def main_init(cfg):
 
     return net
 
-def main_eval(cfg, net, img):
+def main_eval(cfg, net, img, bboxes):
 
     parameters = cfg.submodules.craft.parameters
 
-    bboxes, polys, score_text = test_net(parameters, net, img, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, None)
+    outputs = []
 
-    return polys
+    for bbox in bboxes:
+
+        cropped_image = img[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
+
+        _bboxes, polys, score_text = test_net(parameters, net, cropped_image, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, None)
+
+        outputs.append(polys)
+
+        """ cv2.namedWindow("test", cv2.WINDOW_NORMAL)
+        cv2.rectangle(img, (int(bbox[0]),int(bbox[1])), (int(bbox[2]),int(bbox[3])), (0, 0, 255) , 2) 
+        cv2.imshow("test", img)
+        cv2.imshow("test", cropped_image) """
+
+    return outputs
 
 def main(cfg):
 
