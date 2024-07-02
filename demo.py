@@ -191,11 +191,16 @@ def main_eval(cfg, net, img, bboxes):
 
     for bbox in bboxes:
 
-        cropped_image = img[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
+        #print(bbox)
 
-        _bboxes, polys, score_text = test_net(parameters, net, cropped_image, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, None)
+        if all(i >= 0 for i in bbox):
+            cropped_image = img[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2])]
 
-        outputs.append(polys)
+            _bboxes, polys, score_text = test_net(parameters, net, cropped_image, parameters.text_threshold, parameters.link_threshold, parameters.low_text, parameters.cuda, parameters.poly, None)
+
+            outputs.append(polys)
+        else:
+            outputs.append([])
 
         """ cv2.namedWindow("test", cv2.WINDOW_NORMAL)
         cv2.rectangle(img, (int(bbox[0]),int(bbox[1])), (int(bbox[2]),int(bbox[3])), (0, 0, 255) , 2) 
