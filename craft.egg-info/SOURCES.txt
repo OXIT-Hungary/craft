@@ -1,0 +1,10 @@
+LICENSE
+README.md
+setup.py
+basenet/__init__.py
+basenet/vgg16_bn.py
+craft.egg-info/PKG-INFO
+craft.egg-info/SOURCES.txt
+craft.egg-info/dependency_links.txt
+craft.egg-info/requires.txt
+craft.egg-info/top_level.txt

@@ -45,7 +45,7 @@ def str2bool(v):
     return v.lower() in ("yes", "y", "true", "t", "1")
 
 """ parser = argparse.ArgumentParser(description='CRAFT Text Detection')
-parser.add_argument('--trained_model', default='submodules/craft/weights/craft_mlt_25k.pth', type=str, help='pretrained model')
+parser.add_argument('--trained_model', default='models/craft/weights/craft_mlt_25k.pth', type=str, help='pretrained model')
 parser.add_argument('--text_threshold', default=0.7, type=float, help='text confidence threshold')
 parser.add_argument('--low_text', default=0.2, type=float, help='text low-bound score')
 parser.add_argument('--link_threshold', default=0.4, type=float, help='link confidence threshold')
@@ -163,8 +163,8 @@ def get_position_on_original_img(parameters, pos, heatmap, img):
 
 def main_init(cfg):
 
-    parameters = cfg.submodules.craft.parameters
-    dataloader = cfg.submodules.craft.dataloader
+    parameters = cfg.models.craft.parameters
+    dataloader = cfg.models.craft.dataloader
 
     net = CRAFT()     # initialize
 
@@ -185,7 +185,7 @@ def main_init(cfg):
 
 def main_eval(cfg, net, img, bboxes):
 
-    parameters = cfg.submodules.craft.parameters
+    parameters = cfg.models.craft.parameters
 
     outputs = []
 
@@ -211,9 +211,9 @@ def main_eval(cfg, net, img, bboxes):
 
 def main(cfg):
 
-    parameters = cfg.submodules.craft.parameters
-    dataloader = cfg.submodules.craft.dataloader
-    datawriter = cfg.submodules.craft.datawriter
+    parameters = cfg.models.craft.parameters
+    dataloader = cfg.models.craft.dataloader
+    datawriter = cfg.models.craft.datawriter
 
     """ For test images in a folder """
     image_list, _, _ = file_utils.get_files(dataloader.data_folder)
