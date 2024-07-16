@@ -3,6 +3,13 @@ README.md
 setup.py
 basenet/__init__.py
 basenet/vgg16_bn.py
+craft/__init__.py
+craft/craft.py
+craft/craft_utils.py
+craft/demo.py
+craft/file_utils.py
+craft/imgproc.py
+craft/refinenet.py
 craft.egg-info/PKG-INFO
 craft.egg-info/SOURCES.txt
 craft.egg-info/dependency_links.txt

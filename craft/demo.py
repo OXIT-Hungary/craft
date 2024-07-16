@@ -19,15 +19,15 @@ from PIL import Image
 import cv2
 from skimage import io
 import numpy as np
-import craft_utils
-import imgproc
-import file_utils
+import craft.craft_utils as craft_utils
+import craft.imgproc as imgproc
+import craft.file_utils as file_utils
 import json
 import zipfile
 
 import shutil
 
-from craft import CRAFT
+from craft.craft import CRAFT
 
 from collections import OrderedDict
 def copyStateDict(state_dict):
@@ -245,7 +245,7 @@ def main(cfg):
     # LinkRefiner
     refine_net = None
     if parameters.refine:
-        from refinenet import RefineNet
+        from craft.refinenet import RefineNet
         refine_net = RefineNet()
         print('Loading weights of refiner from checkpoint (' + dataloader.refiner_model + ')')
         if parameters.cuda:
