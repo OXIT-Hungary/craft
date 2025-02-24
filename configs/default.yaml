@@ -1,0 +1,15 @@
+defaults:
+  - models:
+  - _self_
+  - models/craft/base
+
+input: 
+  path: data/20241017-1830_13_5fps.mp4
+  size: [1920, 1080] # 3840,2160 
+  fps: 50
+
+output:
+  path: null # Set to null to automatically save data in hydra folders
+  save_result: false
+
+device: cuda

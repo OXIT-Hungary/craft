@@ -1,0 +1,21 @@
+parameters:
+  show_polygon_on_results: false #only for testing
+  max_intensity: false
+  bbox_size: 20 #only needed if 'max_intensity' is true
+  text_threshold: 0.6
+  low_text: 0.1
+  link_threshold: 0.2
+  cuda: True
+  canvas_size: 1920
+  mag_ratio: 50
+  poly: False
+  show_time: False
+  refine: False
+
+dataloader:
+  data_folder: datasets/craft_input
+  trained_model: craft/weights/craft_mlt_25k.pth
+  refiner_model: path/craft_refiner_CTW1500.pth
+
+datawriter:
+  result_folder: ./datasets/parseq_input/
